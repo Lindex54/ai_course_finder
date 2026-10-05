@@ -1,0 +1,11 @@
+{
+    "name": "ai-course-finder/course-finder",
+    "description": "Early standalone prototype of an AI-assisted university Course Finder.",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "require": {}
+}
