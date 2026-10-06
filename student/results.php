@@ -35,6 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $analysis = $analysisService->latest($sessionId);
+$result = $analysis['result'] ?? [];
+
+$programmeService = new App\Services\ProgrammeRecommendationService($pdo);
+$pointsSummary = $programmeService->recommend($sessionId);
+$totalPoints = $pointsSummary['total_points'];
+$pointsOutOf = $pointsSummary['out_of'];
+
+$savedProgrammes = $programmeService->saved($sessionId);
+$programmeGroups = [
+    "Bachelor's degrees" => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === "Bachelor's Degree")),
+    'Diplomas' => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === 'Diploma')),
+];
 ?>
 <!doctype html>
 <html lang="en">
@@ -59,19 +71,20 @@ $analysis = $analysisService->latest($sessionId);
 
 <main>
     <section class="section">
-        <div class="container narrow">
-            <p class="eyebrow">Your results</p>
-            <h1>What your answers suggest</h1>
+        <div class="container results">
+
+            <header class="results-header">
+                <p class="eyebrow">Your results</p>
+                <h1>What your answers suggest</h1>
+            </header>
 
             <?php if ($notice !== null): ?>
                 <div class="alert alert-error" role="alert"><?= $esc($notice) ?></div>
             <?php endif; ?>
 
             <?php if ($analysis === null): ?>
-                <div class="card">
-                    <p>There is no analysis yet. Finish the assessment to see your results.</p>
-                    <a class="btn btn-primary" href="index.php">Go to the assessment</a>
-                </div>
+                <p class="lead">There is no analysis yet. Finish the assessment to see your results.</p>
+                <a class="btn btn-primary" href="index.php">Go to the assessment</a>
 
             <?php elseif ($analysis['status'] === 'failed'): ?>
                 <div class="alert alert-error" role="alert">
@@ -86,84 +99,112 @@ $analysis = $analysisService->latest($sessionId);
                 </form>
 
             <?php else: ?>
-                <?php $result = $analysis['result'] ?? []; ?>
 
-                <div class="card result-summary">
-                    <p class="result-summary-text"><?= $esc((string) ($result['summary'] ?? '')) ?></p>
-                </div>
+                <?php if ($totalPoints !== null): ?>
+                    <p class="points-total">
+                        Your UACE points: <strong><?= $totalPoints ?></strong> out of <?= $pointsOutOf ?>
+                    </p>
+                <?php endif; ?>
+
+                <p class="results-summary"><?= $esc((string) ($result['summary'] ?? '')) ?></p>
 
                 <?php if (!empty($result['career_directions'])): ?>
-                    <h2 class="result-heading">Career directions to explore</h2>
-                    <div class="grid">
-                        <?php foreach ($result['career_directions'] as $direction): ?>
-                            <article class="card">
-                                <h3 class="card-title"><?= $esc($direction['title']) ?></h3>
-                                <p class="text-secondary"><?= $esc($direction['reason']) ?></p>
-                            </article>
-                        <?php endforeach; ?>
-                    </div>
+                    <section class="result-section">
+                        <h2 class="result-heading">Career directions to explore</h2>
+                        <ol class="result-list">
+                            <?php foreach ($result['career_directions'] as $direction): ?>
+                                <li>
+                                    <h3><?= $esc($direction['title']) ?></h3>
+                                    <p><?= $esc($direction['reason']) ?></p>
+                                </li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </section>
                 <?php endif; ?>
 
-                <?php $programmes = $analysisService->recommendations($sessionId); ?>
-                <?php if ($programmes !== []): ?>
-                    <h2 class="result-heading">Programmes you could consider</h2>
-                    <p class="text-secondary text-small">
-                        From the 2026/2027 catalogue. Entry requirements are not yet verified for these programmes,
-                        so check them with the Academic Registrar before you apply.
-                    </p>
-                    <div class="grid">
-                        <?php foreach ($programmes as $programme): ?>
-                            <article class="card">
-                                <p class="text-small text-secondary programme-code"><?= $esc($programme['code']) ?></p>
-                                <h3 class="card-title"><?= $esc($programme['name']) ?></h3>
-                                <p class="text-small text-secondary">
-                                    <?= $esc(trim(($programme['award_type'] ?? '') . ' · ' . ($programme['duration'] !== null ? $programme['duration'] . ' years' : ''), ' ·')) ?>
-                                </p>
-                                <p class="text-secondary"><?= $esc($programme['reason']) ?></p>
-                                <span class="badge">Entry requirements: needs review</span>
-                            </article>
+                <?php if ($savedProgrammes !== []): ?>
+                    <section class="result-section">
+                        <h2 class="result-heading">Programmes you could consider</h2>
+                        <p class="text-secondary text-small">
+                            From the 2026/2027 catalogue. Entry requirements are not yet verified for these programmes,
+                            so check them with the Academic Registrar before you apply.
+                        </p>
+
+                        <?php foreach ($programmeGroups as $groupTitle => $programmes): ?>
+                            <?php if ($programmes === []) { continue; } ?>
+                            <h3 class="programme-group-title"><?= $esc($groupTitle) ?></h3>
+                            <ul class="programme-list">
+                                <?php foreach ($programmes as $programme): ?>
+                                    <li class="programme-row">
+                                        <span class="programme-code"><?= $esc($programme['code']) ?></span>
+                                        <div class="programme-body">
+                                            <h3><?= $esc($programme['name']) ?></h3>
+                                            <p class="programme-meta">
+                                                <?= $esc($programme['duration'] !== null ? $programme['duration'] . ' years' : '') ?>
+                                            </p>
+                                            <?php if ($programme['requirement'] !== null): ?>
+                                                <p class="programme-requirement"><?= $esc($programme['requirement']) ?></p>
+                                            <?php endif; ?>
+                                            <?php if ($programme['reason'] !== null): ?>
+                                                <p class="programme-reason"><?= $esc($programme['reason']) ?></p>
+                                            <?php endif; ?>
+                                            <p class="programme-status">Entry requirements to be checked</p>
+                                        </div>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
                         <?php endforeach; ?>
-                    </div>
+                    </section>
                 <?php endif; ?>
 
-                <?php if (!empty($result['strengths'])): ?>
-                    <h2 class="result-heading">Your strengths</h2>
-                    <ul class="check-list">
-                        <?php foreach ($result['strengths'] as $item): ?>
-                            <li><?= $esc($item) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
+                <div class="results-two">
+                    <?php if (!empty($result['strengths'])): ?>
+                        <section class="result-section">
+                            <h2 class="result-heading">Your strengths</h2>
+                            <ul class="check-list">
+                                <?php foreach ($result['strengths'] as $item): ?>
+                                    <li><?= $esc($item) ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </section>
+                    <?php endif; ?>
 
-                <?php if (!empty($result['interest_themes'])): ?>
-                    <h2 class="result-heading">Themes in your interests</h2>
-                    <div class="chip-grid">
-                        <?php foreach ($result['interest_themes'] as $theme): ?>
-                            <span class="badge"><?= $esc($theme) ?></span>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                    <?php if (!empty($result['interest_themes'])): ?>
+                        <section class="result-section">
+                            <h2 class="result-heading">Themes in your interests</h2>
+                            <div class="chip-grid">
+                                <?php foreach ($result['interest_themes'] as $theme): ?>
+                                    <span class="badge"><?= $esc($theme) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+                </div>
 
                 <?php if (!empty($result['next_steps'])): ?>
-                    <h2 class="result-heading">Next steps</h2>
-                    <ul class="check-list">
-                        <?php foreach ($result['next_steps'] as $step): ?>
-                            <li><?= $esc($step) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <section class="result-section">
+                        <h2 class="result-heading">Next steps</h2>
+                        <ol class="step-list">
+                            <?php foreach ($result['next_steps'] as $step): ?>
+                                <li><?= $esc($step) ?></li>
+                            <?php endforeach; ?>
+                        </ol>
+                    </section>
                 <?php endif; ?>
 
-                <div class="notice">
+                <aside class="results-note">
                     <?php if (!empty($result['caveats'])): ?>
-                        <strong>Please note:</strong>
-                        <ul class="error-list">
+                        <p><strong>Please note</strong></p>
+                        <ul>
                             <?php foreach ($result['caveats'] as $caveat): ?>
                                 <li><?= $esc($caveat) ?></li>
                             <?php endforeach; ?>
                         </ul>
                     <?php endif; ?>
-                    This is guidance only, generated by an AI service from your answers. It is not an admissions decision.
-                </div>
+                    <p class="results-note-footer">
+                        This is guidance only, generated by an AI service from your answers. It is not an admissions decision.
+                    </p>
+                </aside>
             <?php endif; ?>
 
             <div class="start-actions">
