@@ -34,47 +34,6 @@ declare(strict_types=1);
                 answers are saved as you go, so you can stop and return later.
             </p>
 
-            <div class="card assessment-card">
-                <h3>What you will be asked</h3>
-                <ol class="section-list">
-                    <li>
-                        <span class="section-number">1</span>
-                        <span class="section-text">
-                            <strong>Academic background</strong>
-                            <span class="text-secondary">Your education level, subjects and how you performed in them.</span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="section-number">2</span>
-                        <span class="section-text">
-                            <strong>Interests</strong>
-                            <span class="text-secondary">The subjects, activities and areas you enjoy.</span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="section-number">3</span>
-                        <span class="section-text">
-                            <strong>Skills and strengths</strong>
-                            <span class="text-secondary">How well you think you handle problem solving, creativity, communication and analysis.</span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="section-number">4</span>
-                        <span class="section-text">
-                            <strong>Career goals</strong>
-                            <span class="text-secondary">The careers you are considering and the kind of work you prefer.</span>
-                        </span>
-                    </li>
-                    <li>
-                        <span class="section-number">5</span>
-                        <span class="section-text">
-                            <strong>In your words</strong>
-                            <span class="text-secondary">A few sentences about what you want your future to look like.</span>
-                        </span>
-                    </li>
-                </ol>
-            </div>
-
             <div class="start-actions">
                 <a class="btn btn-primary" href="assessment.php">Start the assessment</a>
                 <a class="btn btn-ghost" href="../index.php">Back to home</a>

@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS question_options (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
+    UNIQUE KEY uq_question_options_value (question_id, option_value),
     KEY idx_question_options_question_id (question_id),
     KEY idx_question_options_display_order (display_order),
     CONSTRAINT fk_question_options_question
@@ -128,6 +129,7 @@ CREATE TABLE IF NOT EXISTS option_attributes (
 CREATE TABLE IF NOT EXISTS student_sessions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     session_token VARCHAR(128) NOT NULL,
+    highest_level ENUM('o_level', 'a_level') NULL,
     started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL DEFAULT NULL,
     status ENUM('in_progress', 'completed', 'abandoned') NOT NULL DEFAULT 'in_progress',
@@ -182,4 +184,58 @@ CREATE TABLE IF NOT EXISTS recommendations (
     CONSTRAINT fk_recommendations_programme
         FOREIGN KEY (programme_id) REFERENCES programmes (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS subjects (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name VARCHAR(150) NOT NULL,
+    slug VARCHAR(150) NOT NULL,
+    level ENUM('o_level', 'a_level') NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    display_order INT UNSIGNED NOT NULL DEFAULT 0,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_subjects_slug_level (slug, level),
+    KEY idx_subjects_level (level),
+    KEY idx_subjects_category (category),
+    KEY idx_subjects_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS student_subjects (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    session_id BIGINT UNSIGNED NOT NULL,
+    subject_id BIGINT UNSIGNED NOT NULL,
+    role ENUM('ordinary', 'principal', 'subsidiary', 'general') NOT NULL DEFAULT 'ordinary',
+    performance ENUM('strong', 'average', 'weak') NULL,
+    grade VARCHAR(10) NULL,
+    points TINYINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_student_subjects_pair (session_id, subject_id),
+    KEY idx_student_subjects_subject_id (subject_id),
+    CONSTRAINT fk_student_subjects_session
+        FOREIGN KEY (session_id) REFERENCES student_sessions (id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_student_subjects_subject
+        FOREIGN KEY (subject_id) REFERENCES subjects (id)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS ai_analyses (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    session_id BIGINT UNSIGNED NOT NULL,
+    model VARCHAR(100) NOT NULL,
+    status ENUM('completed', 'failed') NOT NULL,
+    input_profile LONGTEXT NULL,
+    result_json LONGTEXT NULL,
+    error_message TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_ai_analyses_session_id (session_id),
+    CONSTRAINT fk_ai_analyses_session
+        FOREIGN KEY (session_id) REFERENCES student_sessions (id)
+        ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
