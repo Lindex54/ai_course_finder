@@ -127,7 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             <?php endif; ?>
 
-            <form method="post" action="future.php" novalidate>
+            <form method="post" action="future.php" novalidate data-busy-form>
+
                 <div class="card subject-group">
                     <div class="form-group">
                         <label class="form-label" for="answer">Your answer</label>
@@ -144,7 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="start-actions">
-                    <button type="submit" class="btn btn-primary">Save and continue</button>
+                    <button type="submit" class="btn btn-primary" data-busy-button>
+                        <span data-busy-label>Save and continue</span>
+                    </button>
                     <a class="btn btn-ghost" href="career.php">Back to career goals</a>
                 </div>
             </form>
@@ -159,5 +162,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </footer>
 
+<div class="busy-overlay" data-busy-overlay hidden role="status" aria-live="polite">
+    <div class="busy-card">
+        <span class="spinner" aria-hidden="true"></span>
+        <strong>Reading your answers</strong>
+        <p>We are putting together your career directions and programme options. This usually takes under a minute.</p>
+    </div>
+</div>
+
+<script>
+(function () {
+    var form = document.querySelector('[data-busy-form]');
+    var overlay = document.querySelector('[data-busy-overlay]');
+    if (!form || !overlay) {
+        return;
+    }
+
+    form.addEventListener('submit', function (event) {
+        if (form.getAttribute('data-submitted') === 'true') {
+            event.preventDefault();
+            return;
+        }
+        form.setAttribute('data-submitted', 'true');
+        overlay.hidden = false;
+
+        var button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = true;
+        }
+    });
+
+    // If the browser restores this page from its cache, hide the overlay again.
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            overlay.hidden = true;
+            form.removeAttribute('data-submitted');
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = false;
+            }
+        }
+    });
+})();
+</script>
 </body>
 </html>

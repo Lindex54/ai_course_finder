@@ -53,6 +53,18 @@ final class ProgrammeRecommendationService
         $subjects = $this->subjectSlugs($sessionId);
         $principals = $this->principalSlugs($sessionId);
 
+        // A student with fewer than two principal passes (A to E) is offered the Higher Education
+        // Access Certificates for the subjects they took, instead of degrees and diplomas.
+        if ($this->principalPasses($sessionId) < 2) {
+            return [
+                'total_points' => $total,
+                'out_of' => self::UACE_MAX_POINTS,
+                'bachelors' => [],
+                'diplomas' => [],
+                'certificates' => $this->meetingRequirements($this->certificates(), $principals),
+            ];
+        }
+
         $bachelors = [];
         $diplomas = [];
 
@@ -84,6 +96,7 @@ final class ProgrammeRecommendationService
             'out_of' => self::UACE_MAX_POINTS,
             'bachelors' => $bachelors,
             'diplomas' => $diplomas,
+            'certificates' => [],
         ];
     }
 
@@ -95,7 +108,7 @@ final class ProgrammeRecommendationService
     public function candidates(int $sessionId): array
     {
         $recommendation = $this->recommend($sessionId);
-        return array_merge($recommendation['bachelors'], $recommendation['diplomas']);
+        return array_merge($recommendation['bachelors'], $recommendation['diplomas'], $recommendation['certificates']);
     }
 
     /**
@@ -201,6 +214,32 @@ final class ProgrammeRecommendationService
         );
         $stmt->execute([$sessionId]);
         return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /** Number of principal subjects passed at A to E. */
+    private function principalPasses(int $sessionId): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM student_subjects
+             WHERE session_id = ? AND role = 'principal' AND grade IN ('A', 'B', 'C', 'D', 'E')"
+        );
+        $stmt->execute([$sessionId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Higher Education Access Certificates, from the programmes table.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function certificates(): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT id, code, name, award_type, duration, a_level_rules, a_level_requirement
+             FROM programmes WHERE status = 'active' AND award_type = ? ORDER BY name"
+        );
+        $stmt->execute(['Higher Education Access Certificate']);
+        return $this->shape($stmt->fetchAll());
     }
 
     /** @return list<string> Slugs of the principal subjects only. */

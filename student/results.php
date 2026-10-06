@@ -46,6 +46,7 @@ $savedProgrammes = $programmeService->saved($sessionId);
 $programmeGroups = [
     "Bachelor's degrees" => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === "Bachelor's Degree")),
     'Diplomas' => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === 'Diploma')),
+    'Higher Education Access Certificates' => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === 'Higher Education Access Certificate')),
 ];
 ?>
 <!doctype html>
@@ -94,7 +95,7 @@ $programmeGroups = [
                         <p class="form-help"><?= $esc($analysis['error']) ?></p>
                     <?php endif; ?>
                 </div>
-                <form method="post" action="results.php">
+                <form method="post" action="results.php" data-busy-form>
                     <button type="submit" class="btn btn-primary">Try the analysis again</button>
                 </form>
 
@@ -221,5 +222,47 @@ $programmeGroups = [
     </div>
 </footer>
 
+<div class="busy-overlay" data-busy-overlay hidden role="status" aria-live="polite">
+    <div class="busy-card">
+        <span class="spinner" aria-hidden="true"></span>
+        <strong>Trying again</strong>
+        <p>We are reading your answers once more. This usually takes under a minute.</p>
+    </div>
+</div>
+
+<script>
+(function () {
+    var form = document.querySelector('[data-busy-form]');
+    var overlay = document.querySelector('[data-busy-overlay]');
+    if (!form || !overlay) {
+        return;
+    }
+
+    form.addEventListener('submit', function (event) {
+        if (form.getAttribute('data-submitted') === 'true') {
+            event.preventDefault();
+            return;
+        }
+        form.setAttribute('data-submitted', 'true');
+        overlay.hidden = false;
+
+        var button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.disabled = true;
+        }
+    });
+
+    window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            overlay.hidden = true;
+            form.removeAttribute('data-submitted');
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = false;
+            }
+        }
+    });
+})();
+</script>
 </body>
 </html>

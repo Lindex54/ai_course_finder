@@ -28,7 +28,6 @@ declare(strict_types=1);
     <section class="hero">
         <div class="container hero-grid">
             <div class="hero-text">
-                <p class="eyebrow">2026/2027 admissions</p>
                 <h1>Find the programme that fits how you learn and what you want to do next.</h1>
                 <p class="lead">
                     Answer a short set of questions about your interests, background and goals.
@@ -48,7 +47,6 @@ declare(strict_types=1);
             <aside class="card hero-panel" aria-label="What the finder covers">
                 <h3>What the finder covers</h3>
                 <ul class="level-list">
-                    <li><span>Doctoral</span><span>PhD programmes</span></li>
                     <li><span>Master's</span><span>Masters programmes</span></li>
                     <li><span>Postgraduate</span><span>Diplomas</span></li>
                     <li><span>Bachelor's</span><span>Degree programmes</span></li>

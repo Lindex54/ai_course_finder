@@ -35,7 +35,7 @@ declare(strict_types=1);
             </p>
 
             <div class="start-actions">
-                <a class="btn btn-primary" href="assessment.php">Start the assessment</a>
+                <a class="btn btn-primary" href="start.php">Start the assessment</a>
                 <a class="btn btn-ghost" href="../index.php">Back to home</a>
             </div>
 
