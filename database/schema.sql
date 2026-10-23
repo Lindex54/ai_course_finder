@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS option_attributes (
 CREATE TABLE IF NOT EXISTS student_sessions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     session_token VARCHAR(128) NOT NULL,
-    highest_level ENUM('o_level', 'a_level') NULL,
+    highest_level ENUM('o_level', 'a_level', 'international') NULL,
     started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL DEFAULT NULL,
     status ENUM('in_progress', 'completed', 'abandoned') NOT NULL DEFAULT 'in_progress',
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS subjects (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(150) NOT NULL,
     slug VARCHAR(150) NOT NULL,
-    level ENUM('o_level', 'a_level') NOT NULL,
+    level ENUM('o_level', 'a_level', 'international') NOT NULL,
     category VARCHAR(100) NOT NULL,
     display_order INT UNSIGNED NOT NULL DEFAULT 0,
     status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',

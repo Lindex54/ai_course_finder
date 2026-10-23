@@ -36,6 +36,7 @@ $subsidiaryGrades = [
 $levelLabels = [
     'o_level' => 'O-level (UCE)',
     'a_level' => 'A-level (UACE)',
+    'international' => 'International secondary qualification',
 ];
 
 require __DIR__ . '/includes/session.php';
@@ -48,6 +49,7 @@ $subjects = $pdo->query(
 )->fetchAll();
 
 $oLevelSubjects = [];
+$internationalSubjects = [];
 $aPrincipalSubjects = [];
 $aSubsidiarySubjects = [];
 $aGeneralPaper = [];
@@ -59,6 +61,8 @@ foreach ($subjects as $subject) {
 
     if ($subject['level'] === 'o_level') {
         $oLevelSubjects[] = $subject;
+    } elseif ($subject['level'] === 'international') {
+        $internationalSubjects[] = $subject;
     } elseif ($subject['slug'] === 'general-paper') {
         $aGeneralPaper[] = $subject;
     } elseif ($subject['category'] === 'General and subsidiary') {
@@ -72,6 +76,8 @@ $errors = [];
 $level = '';
 $oChecked = [];
 $oPerformance = [];
+$internationalChecked = [];
+$internationalPerformance = [];
 $aPrincipalIds = array_fill(0, PRINCIPAL_COUNT, 0);
 $aPrincipalGrades = array_fill(0, PRINCIPAL_COUNT, '');
 $aSubsidiaryId = 0;
@@ -84,20 +90,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!isset($levelLabels[$level])) {
         $errors[] = 'Choose the highest level of education you completed.';
-    } elseif ($level === 'o_level') {
-        $postedIds = array_values(array_unique(array_map('intval', (array) ($_POST['subject_ids'] ?? []))));
-        $postedPerformance = is_array($_POST['performance'] ?? null) ? $_POST['performance'] : [];
-        $allowedIds = array_map(static fn (array $s): int => (int) $s['id'], $oLevelSubjects);
+    } elseif ($level === 'o_level' || $level === 'international') {
+        $isInternational = $level === 'international';
+        $subjectField = $isInternational ? 'international_subject_ids' : 'subject_ids';
+        $performanceField = $isInternational ? 'international_performance' : 'performance';
+        $availableSubjects = $isInternational ? $internationalSubjects : $oLevelSubjects;
+        $routeLabel = $isInternational ? 'international' : 'O-level';
+
+        $postedIds = array_values(array_unique(array_map('intval', (array) ($_POST[$subjectField] ?? []))));
+        $postedPerformance = is_array($_POST[$performanceField] ?? null) ? $_POST[$performanceField] : [];
+        $allowedIds = array_map(static fn (array $s): int => (int) $s['id'], $availableSubjects);
 
         if ($postedIds === []) {
-            $errors[] = 'Choose at least one O-level subject you studied.';
+            $errors[] = 'Choose at least one ' . $routeLabel . ' subject you studied.';
         }
 
         $rows = [];
         $missing = [];
         foreach ($postedIds as $subjectId) {
             if (!in_array($subjectId, $allowedIds, true)) {
-                $errors[] = 'One of the O-level subjects was not recognised. Please refresh the page and try again.';
+                $errors[] = 'One of the ' . $routeLabel . ' subjects was not recognised. Please refresh the page and try again.';
                 break;
             }
 
@@ -114,11 +126,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Choose how well you did in: ' . implode(', ', $missing) . '.';
         }
 
-        $oChecked = array_fill_keys($postedIds, true);
-        $oPerformance = array_intersect_key(
+        $checked = array_fill_keys($postedIds, true);
+        $validPerformance = array_intersect_key(
             array_filter($postedPerformance, static fn ($v): bool => is_string($v) && isset($performanceOptions[$v])),
-            $oChecked
+            $checked
         );
+
+        if ($isInternational) {
+            $internationalChecked = $checked;
+            $internationalPerformance = $validPerformance;
+        } else {
+            $oChecked = $checked;
+            $oPerformance = $validPerformance;
+        }
     } else {
         // A-level: three principal subjects with a grade each, a subsidiary subject
         // with a pass/fail result, and the General Paper with a pass/fail result.
@@ -242,9 +262,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $subjectId = (int) $row['subject_id'];
 
         if ($row['role'] === 'ordinary') {
-            $oChecked[$subjectId] = true;
-            if ($row['performance'] !== null) {
-                $oPerformance[$subjectId] = $row['performance'];
+            if ($level === 'international') {
+                $internationalChecked[$subjectId] = true;
+                if ($row['performance'] !== null) {
+                    $internationalPerformance[$subjectId] = $row['performance'];
+                }
+            } else {
+                $oChecked[$subjectId] = true;
+                if ($row['performance'] !== null) {
+                    $oPerformance[$subjectId] = $row['performance'];
+                }
             }
         } elseif ($row['role'] === 'principal' && $principalIndex < PRINCIPAL_COUNT) {
             $aPrincipalIds[$principalIndex] = $subjectId;
@@ -334,9 +361,13 @@ $renderGradeOptions = static function (array $grades, string $selected) use ($es
                         Your UACE points total is <strong><?= $uacePoints ?> out of <?= UACE_MAX_POINTS ?></strong>.
                     <?php endif; ?>
                     Your academic background is saved.
-                    <div class="alert-actions">
-                        <a class="btn btn-primary" href="interests.php">Continue to interests</a>
-                    </div>
+                    <?php if ($level === 'international'): ?>
+                        <p class="form-help">International subject selection is complete. Programme matching for this route will be added in the next stage.</p>
+                    <?php else: ?>
+                        <div class="alert-actions">
+                            <a class="btn btn-primary" href="interests.php">Continue to interests</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
 
@@ -365,7 +396,7 @@ $renderGradeOptions = static function (array $grades, string $selected) use ($es
                 </fieldset>
 
                 <!-- O-level: tick the subjects studied and rate each one -->
-                <fieldset class="card subject-group" data-level-section="o_level" <?= $level === 'a_level' ? 'hidden' : '' ?>>
+                <fieldset class="card subject-group" data-level-section="o_level" <?= $level !== 'o_level' ? 'hidden' : '' ?>>
                     <legend class="subject-legend">O-level subjects</legend>
                     <p class="text-secondary text-small">Tick each subject you studied, then say how well you did in it.</p>
 
@@ -399,8 +430,46 @@ $renderGradeOptions = static function (array $grades, string $selected) use ($es
                     <?php endforeach; ?>
                 </fieldset>
 
+                <!-- International route: common subjects relevant to Busitema bachelor's programmes -->
+                <fieldset class="card subject-group" data-level-section="international" <?= $level !== 'international' ? 'hidden' : '' ?>>
+                    <legend class="subject-legend">International secondary-school subjects</legend>
+                    <p class="text-secondary text-small">
+                        Select the subjects shown on your secondary-school qualification, then tell us how well you performed.
+                        The list is limited to subjects related to Busitema bachelor's programmes.
+                    </p>
+
+                    <div class="subject-head" aria-hidden="true">
+                        <span>Subject</span>
+                        <span>How well did you do?</span>
+                    </div>
+
+                    <?php foreach ($internationalSubjects as $subject): ?>
+                        <?php
+                        $subjectId = (int) $subject['id'];
+                        $inputId = 'international-subject-' . $subjectId;
+                        $selectedPerformance = $internationalPerformance[$subjectId] ?? '';
+                        ?>
+                        <div class="subject-row">
+                            <label class="subject-name" for="<?= $inputId ?>">
+                                <input type="checkbox" id="<?= $inputId ?>" name="international_subject_ids[]" value="<?= $subjectId ?>"
+                                    <?= isset($internationalChecked[$subjectId]) ? 'checked' : '' ?>>
+                                <span><?= $esc($subject['name']) ?></span>
+                            </label>
+                            <label class="visually-hidden" for="<?= $inputId ?>-performance">
+                                How well did you do in <?= $esc($subject['name']) ?>?
+                            </label>
+                            <select class="form-control subject-performance" id="<?= $inputId ?>-performance" name="international_performance[<?= $subjectId ?>]">
+                                <option value="">Choose</option>
+                                <?php foreach ($performanceOptions as $value => $label): ?>
+                                    <option value="<?= $value ?>" <?= $selectedPerformance === $value ? 'selected' : '' ?>><?= $label ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endforeach; ?>
+                </fieldset>
+
                 <!-- A-level: dropdowns filled from the database, with a grade for each paper -->
-                <fieldset class="card subject-group" data-level-section="a_level" <?= $level === 'o_level' || $level === '' ? 'hidden' : '' ?>>
+                <fieldset class="card subject-group" data-level-section="a_level" <?= $level !== 'a_level' ? 'hidden' : '' ?>>
                     <legend class="subject-legend">A-level subjects</legend>
                     <p class="text-secondary text-small">
                         Choose your three principal subjects and your subsidiary subject, then enter the grade you got in each.
@@ -442,7 +511,7 @@ $renderGradeOptions = static function (array $grades, string $selected) use ($es
                 </fieldset>
 
                 <div class="start-actions">
-                    <button type="submit" class="btn btn-primary">Save and continue</button>
+                    <button type="submit" class="btn btn-primary">Save academic background</button>
                     <a class="btn btn-ghost" href="index.php">Back</a>
                 </div>
             </form>

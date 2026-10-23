@@ -46,14 +46,17 @@ final class StudentProfileService
         );
         $stmt->execute([$sessionId]);
 
-        if ($level === 'o_level') {
+        if ($level === 'o_level' || $level === 'international') {
             $subjects = [];
             foreach ($stmt->fetchAll() as $row) {
                 if ($row['role'] === 'ordinary') {
                     $subjects[] = ['subject' => $row['name'], 'performance' => $row['performance']];
                 }
             }
-            return ['level' => 'O-level', 'subjects' => $subjects];
+            return [
+                'level' => $level === 'international' ? 'International secondary qualification' : 'O-level',
+                'subjects' => $subjects,
+            ];
         }
 
         $principal = [];
