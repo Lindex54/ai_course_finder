@@ -16,6 +16,8 @@ use PDO;
  * - O-level students: diplomas related to their subjects.
  * - A-level students: a programme is dropped when their principal subjects do not meet
  *   its essential A-level subject requirement (from the official 2026/2027 document).
+ * - International students: subjects rated Strong or Average are matched to the same
+ *   catalogue subject rules, with equivalent international subject names normalised.
  * - IT-related students: the computing programmes are added, within the rules above.
  *
  * The AI chooses the final programmes from these candidates, and the results are saved here.
@@ -32,20 +34,31 @@ final class ProgrammeRecommendationService
     }
 
     /**
-     * @return array{total_points: int|null, out_of: int, bachelors: list<array<string, mixed>>, diplomas: list<array<string, mixed>>}
+     * @return array{
+     *     total_points: int|null,
+     *     out_of: int,
+     *     bachelors: list<array<string, mixed>>,
+     *     diplomas: list<array<string, mixed>>,
+     *     certificates: list<array<string, mixed>>
+     * }
      */
     public function recommend(int $sessionId): array
     {
         $level = $this->level($sessionId);
 
-        // Every programme in the catalogue needs A-level entry, diplomas included, so
-        // students without A-level subjects have no programmes to choose from.
+        if ($level === 'international') {
+            return $this->internationalRecommendations($sessionId);
+        }
+
+        // The catalogue routes currently recorded for O-level students still require
+        // an additional post-O-level qualification.
         if ($level !== 'a_level') {
             return [
                 'total_points' => null,
                 'out_of' => self::UACE_MAX_POINTS,
                 'bachelors' => [],
                 'diplomas' => [],
+                'certificates' => [],
             ];
         }
 
@@ -93,6 +106,41 @@ final class ProgrammeRecommendationService
 
         return [
             'total_points' => $total,
+            'out_of' => self::UACE_MAX_POINTS,
+            'bachelors' => $bachelors,
+            'diplomas' => $diplomas,
+            'certificates' => [],
+        ];
+    }
+
+    /**
+     * Uses well-performed international subjects as the equivalent of A-level
+     * principal subjects when applying the catalogue's recorded subject rules.
+     * Final equivalence remains subject to confirmation by the university.
+     *
+     * @return array{
+     *     total_points: null,
+     *     out_of: int,
+     *     bachelors: list<array<string, mixed>>,
+     *     diplomas: list<array<string, mixed>>,
+     *     certificates: list<array<string, mixed>>
+     * }
+     */
+    private function internationalRecommendations(int $sessionId): array
+    {
+        $subjects = $this->internationalQualifyingSubjectSlugs($sessionId);
+        $bachelors = $this->meetingRequirements($this->bachelors(null), $subjects);
+        $diplomas = $this->meetingRequirements($this->relatedDiplomas($subjects), $subjects);
+
+        if ($this->isInformationTechnologyStudent($sessionId)) {
+            $diplomas = $this->addMissing($diplomas, $this->meetingRequirements(
+                $this->computingProgrammes('Diploma'),
+                $subjects
+            ));
+        }
+
+        return [
+            'total_points' => null,
             'out_of' => self::UACE_MAX_POINTS,
             'bachelors' => $bachelors,
             'diplomas' => $diplomas,
@@ -214,6 +262,42 @@ final class ProgrammeRecommendationService
         );
         $stmt->execute([$sessionId]);
         return array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
+    /**
+     * International subjects rated Strong or Average, normalised to the subject
+     * slugs used by the catalogue's entry rules.
+     *
+     * @return list<string>
+     */
+    private function internationalQualifyingSubjectSlugs(int $sessionId): array
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT DISTINCT s.slug FROM student_subjects ss
+             JOIN subjects s ON s.id = ss.subject_id
+             WHERE ss.session_id = ? AND s.level = 'international'
+               AND ss.performance IN ('strong', 'average')"
+        );
+        $stmt->execute([$sessionId]);
+
+        $aliases = [
+            'further-mathematics' => 'mathematics',
+            'human-biology-health-science' => 'biology',
+            'entrepreneurship' => 'entrepreneurship-education',
+            'food-nutrition' => 'foods-and-nutrition',
+            'design-technology' => 'technology-and-design',
+        ];
+
+        $subjects = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $slug) {
+            $slug = (string) $slug;
+            $subjects[] = $slug;
+            if (isset($aliases[$slug])) {
+                $subjects[] = $aliases[$slug];
+            }
+        }
+
+        return array_values(array_unique($subjects));
     }
 
     /** Number of principal subjects passed at A to E. */
@@ -407,7 +491,10 @@ final class ProgrammeRecommendationService
         $subjects = $this->pdo->prepare(
             "SELECT COUNT(*) FROM student_subjects ss
              JOIN subjects s ON s.id = ss.subject_id
-             WHERE ss.session_id = ? AND s.slug IN ('ict', 'subsidiary-ict', 'technology-and-design')"
+             WHERE ss.session_id = ? AND s.slug IN (
+                 'ict', 'subsidiary-ict', 'technology-and-design',
+                 'computer-science', 'design-technology'
+             )"
         );
         $subjects->execute([$sessionId]);
         return (int) $subjects->fetchColumn() > 0;

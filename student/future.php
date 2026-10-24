@@ -69,10 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo,
             new App\Services\GeminiService($gemini['api_key'], $gemini['models'])
         );
-        $analysisService->run($sessionId);
-
-        header('Location: results.php');
-        exit;
+        try {
+            $analysisService->run($sessionId);
+            header('Location: results.php');
+            exit;
+        } catch (Throwable $exception) {
+            error_log(sprintf(
+                'Assessment analysis failed for student session %d: %s',
+                $sessionId,
+                $exception->getMessage()
+            ));
+            $errors[] = 'We could not complete your analysis just now. Your answer is saved, so please try submitting again.';
+        }
     }
 } else {
     $existing = $pdo->prepare(

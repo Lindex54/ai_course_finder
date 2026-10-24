@@ -361,13 +361,9 @@ $renderGradeOptions = static function (array $grades, string $selected) use ($es
                         Your UACE points total is <strong><?= $uacePoints ?> out of <?= UACE_MAX_POINTS ?></strong>.
                     <?php endif; ?>
                     Your academic background is saved.
-                    <?php if ($level === 'international'): ?>
-                        <p class="form-help">International subject selection is complete. Programme matching for this route will be added in the next stage.</p>
-                    <?php else: ?>
-                        <div class="alert-actions">
-                            <a class="btn btn-primary" href="interests.php">Continue to interests</a>
-                        </div>
-                    <?php endif; ?>
+                    <div class="alert-actions">
+                        <a class="btn btn-primary" href="interests.php">Continue to interests</a>
+                    </div>
                 </div>
             <?php endif; ?>
 

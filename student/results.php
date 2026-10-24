@@ -43,6 +43,7 @@ $totalPoints = $pointsSummary['total_points'];
 $pointsOutOf = $pointsSummary['out_of'];
 
 $savedProgrammes = $programmeService->saved($sessionId);
+$programmeCandidates = $programmeService->candidates($sessionId);
 $programmeGroups = [
     "Bachelor's degrees" => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === "Bachelor's Degree")),
     'Diplomas' => array_values(array_filter($savedProgrammes, static fn (array $p): bool => $p['award_type'] === 'Diploma')),
@@ -108,6 +109,18 @@ $programmeGroups = [
                 <?php endif; ?>
 
                 <p class="results-summary"><?= $esc((string) ($result['summary'] ?? '')) ?></p>
+
+                <?php if ($savedProgrammes === [] && $programmeCandidates !== []): ?>
+                    <div class="alert" role="status">
+                        Matching Busitema programmes are now available for your qualification.
+                        Run the analysis again to add the courses that best fit your answers.
+                        <div class="alert-actions">
+                            <form method="post" action="results.php" data-busy-form>
+                                <button type="submit" class="btn btn-primary">Find matching programmes</button>
+                            </form>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <?php if (!empty($result['career_directions'])): ?>
                     <section class="result-section">
